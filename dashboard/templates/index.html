@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta name="description" content="EarthSense — Real-time earthquake monitoring and alert system powered by cloud streaming technology">
+  <title>🌍 EarthSense — Real-Time Seismic Alert System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<!-- Animated seismic wave background canvas -->
+<canvas id="seismicCanvas"></canvas>
+
+<!-- ── Particle overlay ── -->
+<div id="particleOverlay"></div>
+
+<!-- ── Header ───────────────────────────────────────────────────── -->
+<header id="mainHeader">
+  <div class="logo">
+    <span class="logo-icon">🌍</span>
+    <div>
+      <h1 class="logo-text">EARTHSENSE</h1>
+      <span class="logo-sub">Real-Time Seismic Monitoring Network</span>
+    </div>
+  </div>
+  <nav class="header-nav">
+    <button class="nav-btn active" id="navDashboard" onclick="switchTab('dashboard')">📊 DASHBOARD</button>
+    <button class="nav-btn" id="navAnalytics"  onclick="switchTab('analytics')">📈 ANALYTICS</button>
+    <button class="nav-btn" id="navSensors"    onclick="switchTab('sensors')">📡 SENSORS</button>
+    <button class="nav-btn" id="navHistory"    onclick="switchTab('history')">🗂️ HISTORY</button>
+  </nav>
+  <div class="header-right">
+    <div class="connection-status" id="connectionStatus">
+      <span class="conn-dot"></span><span class="conn-label">CONNECTING</span>
+    </div>
+    <div class="live-badge"><span class="live-dot"></span>LIVE</div>
+    <div class="header-clock" id="headerClock">--:--:-- UTC</div>
+  </div>
+</header>
+
+<!-- ── Stats Bar ─────────────────────────────────────────────────── -->
+<div class="stats-bar">
+  <div class="stat-card" id="card-total">
+    <span class="stat-icon">📡</span>
+    <div><div class="stat-value" id="totalCount">0</div><div class="stat-label">TOTAL EVENTS</div></div>
+  </div>
+  <div class="stat-card critical" id="card-critical">
+    <span class="stat-icon">🚨</span>
+    <div><div class="stat-value critical" id="criticalCount">0</div><div class="stat-label">CRITICAL</div></div>
+  </div>
+  <div class="stat-card warning" id="card-warning">
+    <span class="stat-icon">⚠️</span>
+    <div><div class="stat-value warning" id="warningCount">0</div><div class="stat-label">WARNING</div></div>
+  </div>
+  <div class="stat-card normal" id="card-normal">
+    <span class="stat-icon">✅</span>
+    <div><div class="stat-value normal" id="normalCount">0</div><div class="stat-label">NORMAL</div></div>
+  </div>
+  <div class="stat-card" id="card-sensors">
+    <span class="stat-icon">🔬</span>
+    <div><div class="stat-value" id="sensorCount">8</div><div class="stat-label">SENSORS ACTIVE</div></div>
+  </div>
+  <div class="stat-card" id="card-latest">
+    <span class="stat-icon">📊</span>
+    <div><div class="stat-value" id="lastMagnitude" style="color:var(--normal)">—</div><div class="stat-label">LATEST M</div></div>
+  </div>
+  <!-- Risk Meter -->
+  <div class="stat-card risk-card" id="card-risk">
+    <span class="stat-icon">⚡</span>
+    <div style="flex:1">
+      <div class="stat-label" style="margin-bottom:5px">RISK LEVEL</div>
+      <div class="risk-bar-wrap">
+        <div class="risk-bar" id="riskBar"></div>
+      </div>
+      <div class="risk-label" id="riskLabel">LOW</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════  TABS  ══════════════ -->
+
+<!-- ── TAB: DASHBOARD ─────────────────────────────────────────────── -->
+<div class="tab-content active" id="tabDashboard">
+  <div class="main-grid">
+    <!-- World Map -->
+    <div class="map-panel panel">
+      <div class="panel-header">
+        <span class="panel-title">🗺️ GLOBAL SENSOR NETWORK</span>
+        <span class="panel-badge" id="mapBadge">8 Sensors Online</span>
+      </div>
+      <div id="seismicMap"></div>
+    </div>
+
+    <!-- Right Column -->
+    <div class="right-panels">
+      <!-- Live Chart -->
+      <div class="chart-panel panel">
+        <div class="panel-header">
+          <span class="panel-title">📈 LIVE MAGNITUDE STREAM</span>
+          <div class="legend">
+            <span class="legend-item critical">● ≥6.0</span>
+            <span class="legend-item warning">● 4.5–6.0</span>
+            <span class="legend-item normal">● &lt;4.5</span>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="magnitudeChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Event Feed -->
+      <div class="feed-panel panel">
+        <div class="panel-header">
+          <span class="panel-title">⚡ LIVE EVENT FEED</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="feed-filter active" data-filter="ALL" onclick="setFilter(this,'ALL')">ALL</button>
+            <button class="feed-filter" data-filter="CRITICAL" onclick="setFilter(this,'CRITICAL')">🚨</button>
+            <button class="feed-filter" data-filter="WARNING"  onclick="setFilter(this,'WARNING')">⚠️</button>
+            <span class="feed-count" id="feedCount">0 events</span>
+          </div>
+        </div>
+        <div class="feed-list" id="eventFeed">
+          <div style="color:var(--text-muted);font-size:12px;text-align:center;padding:20px;letter-spacing:2px">
+            AWAITING SEISMIC DATA...
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── TAB: ANALYTICS ─────────────────────────────────────────────── -->
+<div class="tab-content" id="tabAnalytics">
+  <div class="analytics-grid">
+    <!-- Severity Donut -->
+    <div class="panel analytics-donut">
+      <div class="panel-header"><span class="panel-title">🍩 SEVERITY BREAKDOWN</span></div>
+      <div style="padding:16px;flex:1;display:flex;align-items:center;justify-content:center">
+        <canvas id="donutChart" style="max-width:220px;max-height:220px"></canvas>
+      </div>
+    </div>
+
+    <!-- Hourly Bar -->
+    <div class="panel analytics-bar">
+      <div class="panel-header"><span class="panel-title">📊 EVENTS PER SENSOR</span></div>
+      <div style="padding:16px;flex:1;min-height:0">
+        <canvas id="barChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Magnitude Heatmap -->
+    <div class="panel analytics-heatmap">
+      <div class="panel-header"><span class="panel-title">🌡️ MAGNITUDE HEATMAP (LAST 50)</span></div>
+      <div class="heatmap-grid" id="heatmapGrid"></div>
+    </div>
+
+    <!-- Avg Magnitude Gauge -->
+    <div class="panel analytics-gauge">
+      <div class="panel-header"><span class="panel-title">🎯 AVERAGE MAGNITUDE</span></div>
+      <div class="gauge-wrap">
+        <canvas id="gaugeCanvas" width="200" height="120"></canvas>
+        <div class="gauge-value" id="gaugeValue">—</div>
+        <div class="gauge-sub">GLOBAL AVG</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── TAB: SENSORS ────────────────────────────────────────────────── -->
+<div class="tab-content" id="tabSensors">
+  <div class="sensors-grid" id="sensorGrid">
+    <!-- Populated by JS -->
+  </div>
+</div>
+
+<!-- ── TAB: HISTORY ────────────────────────────────────────────────── -->
+<div class="tab-content" id="tabHistory">
+  <div class="history-wrap">
+    <div class="history-toolbar">
+      <input class="history-search" id="historySearch" type="text" placeholder="🔍 Search location or sensor...">
+      <select class="history-select" id="historySeverity" onchange="filterHistory()">
+        <option value="ALL">All Severities</option>
+        <option value="CRITICAL">🚨 Critical</option>
+        <option value="WARNING">⚠️ Warning</option>
+        <option value="NORMAL">✅ Normal</option>
+      </select>
+      <button class="history-export" onclick="exportCSV()">📥 EXPORT CSV</button>
+    </div>
+    <div class="history-table-wrap">
+      <table class="history-table" id="historyTable">
+        <thead>
+          <tr>
+            <th>TIME UTC</th><th>SENSOR</th><th>LOCATION</th>
+            <th>MAGNITUDE</th><th>DEPTH</th><th>SEVERITY</th>
+          </tr>
+        </thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════  TOAST NOTIFICATION CONTAINER  ══════════════ -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ── Bottom Ticker ──────────────────────────────────────────────── -->
+<div class="ticker">
+  <span class="ticker-label">SEISMIC TICKER</span>
+  <div class="ticker-track">
+    <div class="ticker-inner" id="tickerInner">
+      <span class="ticker-item">Connecting to sensor network...</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Quick-Peek Side Drawer ─────────────────────────────────────── -->
+<div class="drawer" id="sideDrawer">
+  <div class="drawer-header">
+    <span>⚡ RECENT ALERTS</span>
+    <button class="drawer-close" onclick="toggleDrawer()">✕</button>
+  </div>
+  <div class="drawer-body" id="drawerAlerts"></div>
+</div>
+<button class="drawer-toggle" id="drawerToggle" onclick="toggleDrawer()">
+  🔔 <span id="drawerBadge" class="drawer-badge">0</span>
+</button>
+
+<!-- Scripts -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.1/socket.io.min.js"></script>
+<script>window.SENSORS = {{ sensors | tojson }};</script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

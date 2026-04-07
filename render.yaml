@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: earthsense
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --worker-class eventlet -w 1 run_all:app
+    envVars:
+      - key: EMIT_INTERVAL_SECONDS
+        value: "2"
+      - key: MAGNITUDE_WARNING_THRESHOLD
+        value: "4.5"
+      - key: MAGNITUDE_CRITICAL_THRESHOLD
+        value: "6.0"
+      - key: DASHBOARD_PORT
+        value: "10000"
