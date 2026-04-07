@@ -13,3 +13,5 @@ services:
         value: "6.0"
       - key: DASHBOARD_PORT
         value: "10000"
+      - key: PYTHON_VERSION
+        value: "3.10.13"
