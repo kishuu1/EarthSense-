@@ -2,7 +2,7 @@
 
 A cloud-native, real-time earthquake monitoring and alert dashboard powered by Flask, Socket.IO, and simulated sensor streaming.
 
-🔴 **Live Demo:** [https://earthsense-w55k.onrender.com](https://earthsense-w55k.onrender.com)
+🔴 **Live Demo:** [https://earthsense-w55k.onrender.com](https://ecommerce-website-3-g7g4.onrender.com)
 
 ![EarthSense Live Dashboard](screenshot.png)
 
